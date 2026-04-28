@@ -5,11 +5,11 @@ import org.example.restapi.dto.UsageDto;
 import org.example.restapi.service.EnergyService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -31,17 +31,20 @@ public class EnergyController {
 
     @GetMapping("/historical")
     public List<UsageDto> getHistoricalUsage(
-            @RequestParam("from")
+            @RequestParam("start")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            OffsetDateTime from,
-            @RequestParam("to")
+            OffsetDateTime start,
+            @RequestParam("end")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            OffsetDateTime to
+            OffsetDateTime end
     ) {
-        if (from.isAfter(to)) {
-            throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
+        if (start.isAfter(end)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Start date must be before or equal to end date"
+            );
         }
 
-        return energyService.getHistoricalUsage(from, to);
+        return energyService.getHistoricalUsage(start, end);
     }
 }
