@@ -1,11 +1,8 @@
 package org.example.gui;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -26,8 +23,7 @@ public class HelloController {
     @FXML private Label communityUsedLabel;
     @FXML private Label gridUsedLabel;
 
-    private static final String API_URL = "http://localhost:8080/energy";
-    private HttpClient httpClient = HttpClient.newHttpClient();
+    private final ApiClient apiClient = new ApiClient();
 
     @FXML
     public void initialize() {
@@ -56,61 +52,52 @@ public class HelloController {
     }
 
     private void loadCurrentData() {
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(API_URL + "/current"))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            JSONObject data = new JSONObject(response.body());
-            
-            communityPoolLabel.setText(String.format("%.2f%% used", data.getDouble("communityPercentage")));
-            gridPortionLabel.setText(String.format("%.2f%%", data.getDouble("gridPercentage")));
-        } catch (Exception e) {
-            showError("Error: " + e.getMessage());
-        }
+        apiClient.getAsync("/current")
+                .thenAccept(response -> Platform.runLater(() -> {
+                    JSONObject data = new JSONObject(response);
+                    communityPoolLabel.setText(String.format("%.2f%% used", data.getDouble("communityPercentage")));
+                    gridPortionLabel.setText(String.format("%.2f%%", data.getDouble("gridPercentage")));
+                }))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> showError("Current data could not be loaded: \n" + ex));
+                    return null;
+                });
     }
 
     private void loadHistoricalData() {
-        try {
-            LocalDateTime start = LocalDateTime.of(
-                    startDatePicker.getValue(),
-                    LocalTime.of(startHourSpinner.getValue(), startMinuteSpinner.getValue())
-            );
-            LocalDateTime end = LocalDateTime.of(
-                    endDatePicker.getValue(),
-                    LocalTime.of(endHourSpinner.getValue(), endMinuteSpinner.getValue())
-            );
+        LocalDateTime start = LocalDateTime.of(
+                startDatePicker.getValue(),
+                LocalTime.of(startHourSpinner.getValue(), startMinuteSpinner.getValue())
+        );
+        LocalDateTime end = LocalDateTime.of(
+                endDatePicker.getValue(),
+                LocalTime.of(endHourSpinner.getValue(), endMinuteSpinner.getValue())
+        );
 
-            String url = String.format("%s/historical?from=%s&to=%s", 
-                    API_URL, 
-                    start.atOffset(ZoneOffset.UTC), 
-                    end.atOffset(ZoneOffset.UTC));
+        String queryString = String.format("?start=%s&end=%s",
+                start.atOffset(ZoneOffset.UTC),
+                end.atOffset(ZoneOffset.UTC));
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            JSONArray data = new JSONArray(response.body());
-            
-            double produced = 0, used = 0, grid = 0;
-            for (int i = 0; i < data.length(); i++) {
-                JSONObject entry = data.getJSONObject(i);
-                produced += entry.getDouble("communityProduced");
-                used += entry.getDouble("communityUsed");
-                grid += entry.getDouble("gridUsed");
-            }
-
-            communityProducedLabel.setText(String.format("%.3f kWh", produced));
-            communityUsedLabel.setText(String.format("%.3f kWh", used));
-            gridUsedLabel.setText(String.format("%.3f kWh", grid));
-        } catch (Exception e) {
-            showError("Error: " + e.getMessage());
-        }
+        apiClient.getAsync("/historical" + queryString)
+                .thenAccept(response -> Platform.runLater(() -> {
+                    JSONArray data = new JSONArray(response);
+                    double produced = 0, used = 0, grid = 0;
+                    for (int i = 0; i < data.length(); i++) {
+                        JSONObject entry = data.getJSONObject(i);
+                        produced += entry.getDouble("communityProduced");
+                        used += entry.getDouble("communityUsed");
+                        grid += entry.getDouble("gridUsed");
+                    }
+                    communityProducedLabel.setText(String.format("%.3f kWh", produced));
+                    communityUsedLabel.setText(String.format("%.3f kWh", used));
+                    gridUsedLabel.setText(String.format("%.3f kWh", grid));
+                }))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> showError("Historic data could not be loaded: \n" + ex));
+                    return null;
+                });
     }
+
 
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
