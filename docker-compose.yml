@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: energy-postgres
+    restart: unless-stopped
+    ports:
+      - "5442:5432"
+    environment:
+      POSTGRES_DB: energy
+      POSTGRES_USER: disysuser
+      POSTGRES_PASSWORD: disyspw
+    volumes:
+      - energy-postgres-data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: energy-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+volumes:
+  energy-postgres-data:

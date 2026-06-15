@@ -1,23 +1,21 @@
 package org.example.restapi.controller;
 
 import org.example.restapi.dto.CurrentPercentageDto;
-import org.example.restapi.dto.UsageDto;
+import org.example.restapi.dto.HistoricalUsageDto;
 import org.example.restapi.service.EnergyService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.time.OffsetDateTime;
-import java.util.List;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/energy")
 public class EnergyController {
-
     private final EnergyService energyService;
 
     public EnergyController(EnergyService energyService) {
@@ -30,21 +28,13 @@ public class EnergyController {
     }
 
     @GetMapping("/historical")
-    public List<UsageDto> getHistoricalUsage(
-            @RequestParam("start")
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            OffsetDateTime start,
-            @RequestParam("end")
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            OffsetDateTime end
+    public HistoricalUsageDto getHistoricalUsage(
+            @RequestParam("start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant start,
+            @RequestParam("end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant end
     ) {
         if (start.isAfter(end)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Start date must be before or equal to end date"
-            );
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
         }
-
         return energyService.getHistoricalUsage(start, end);
     }
 }
